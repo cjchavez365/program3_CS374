@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
 
@@ -99,6 +100,64 @@ void parseCommand (char* input, struct Command* cmd) {
     }
 }
 
+void runOtherCommand (struct Command* cmd, int* lastStatus, int* lastSignal) {
+    int childStatus;
+    pid_t spawnPid = fork();
+
+    if (spawnPid == -1) {
+        perror("fork");
+        exit(1);
+    }
+
+    if (spawnPid == 0) {
+        struct sigaction childSIGINT = {0};
+        struct sigaction childSIGTSTP = {0};
+
+        if (cmd->background == 1) {
+            childSIGINT.sa_handler = SIG_IGN;
+        }
+        else {
+            childSIGINT.sa_handler = SIG_DFL;
+        }
+
+        sigfillset(&childSIGINT.sa_mask);
+        childSIGINT.sa_flags = 0;
+        sigaction(SIGINT, &childSIGINT, NULL); 
+
+        childSIGTSTP.sa_handler = SIG_IGN;
+        sigfillset(&childSIGTSTP.sa_mask);
+        childSIGTSTP.sa_flags = 0;
+        sigaction(SIGTSTP, &childSIGTSTP, NULL);
+
+        //setupInput(cmd);
+        //setupOutput(cmd);
+
+        execvp(cmd->args[0], cmd->args);
+
+        perror(cmd->args[0]);
+        exit(1);
+    }
+    else {
+        if (cmd->background == 1) {
+            printf("background pid is %d\n", spawnPid);
+            fflush(stdout);
+            //addBackgroundPid(spawnPid);
+        }
+        else{
+            waitpid(spawnPid, &childStatus, 0);
+
+            if (WIFEXITED(childStatus)) {
+                *lastStatus = WEXITSTATUS(childStatus);
+                *lastSignal = 0;
+            }
+            else if (WIFSIGNALED(childStatus)) {
+                *lastSignal = WTERMSIG(childStatus);
+                printf("terminated by signal %d\n", *lastSignal);
+                fflush(stdout);    
+            }
+        }
+    }
+}
 
 
 /* runBuiltIn MAIN FUNCTIONALITIES ARE TO MEET THE ASSIGNMENT REQUIREMENTS
@@ -173,7 +232,9 @@ int main (){
             continue;
         }
 
-        runBuiltIn(&cmd, lastStatus, lastSignal);
+        if (runBuiltIn(&cmd, lastStatus, lastSignal) == 0) {
+            runOtherCommand(&cmd, &lastStatus, &lastSignal);
+        }
     }
     return 0;
 }
