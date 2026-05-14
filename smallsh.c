@@ -23,6 +23,22 @@ struct Command {
     char* inputFile;
     char* outputFile;
     int background;
-}
+};
 
+int main (){
+    char input[MAX_LINE + 1];
+
+    while (1) {
+        printf(": ");
+        fflush(stdout);
+        fgets(input, MAX_LINE, stdin);
+
+        input[strcspn(input, "\n")] = '\0';
+
+        if (input[0] == '\0' || input[0] == '#') {
+            continue;
+        }
+    }
+    return 0;
+}
 
