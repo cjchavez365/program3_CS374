@@ -25,9 +25,30 @@ struct Command {
     int background;
 };
 
+/* expandPID MAIN FUNCTIONALITY IS TO REPLACE $$ FROM USER INPUT
+ * WITH THE smallsh PID */
+void expandPID (char* input, char* output) {
+    char pidStr[20];
+    sprintf(pidStr, "%d", getpid());
+
+    output[0] = '\0';
+
+    for (int i = 0; input[i] != '\0'; i++) {
+        if (input[i] == '$' && input[i + 1] == '$') {
+            strcat(output, pidStr);
+            i++;
+        }
+        else {
+            int len = strlen(output);
+            output[len] = input[i];
+            output[len + 1] = '\0';
+        }
+    }
+}
+
 /* parseCommand MAIN FUNCTIONALITIES ARE TO TAKE THE USERS INPUT
  * AND CREATE COMMANDS, ARGUMENTS, INPUT/OUTPUT REDIRECTION FILES, AND 
-  * BACKGROUND FLAGS - AS OUTLINED IN THE ASSIGNMENT DESCRIPTION */
+ * BACKGROUND FLAGS - AS OUTLINED IN THE ASSIGNMENT DESCRIPTION */
 void parseCommand (char* input, struct Command* cmd) {
     int i; 
     int argc = 0;
@@ -78,11 +99,21 @@ void parseCommand (char* input, struct Command* cmd) {
     }
 }
 
+
+
+/* runBuiltIn MAIN FUNCTIONALITIES ARE TO MEET THE ASSIGNMENT REQUIREMENTS
+ * OF BEING ABLE TO RUN exit, cd, AND status IN THE TERMINAL. 
+ * RETURNS 1 FOR BUILT-IN COMMAND AND 0 IF NOT */
 int runBuiltIn (struct Command* cmd, int lastStatus, int lastSignal) {
+    // Built-in commands use if statements since the inputs can conditionally be a built-in command
+    // The if statements is efficient at checking if one of the built-in commands must run.
+
+    // Checks for exit command and ends program if so
     if (strcmp(cmd->args[0], "exit") == 0) {
         //killBackgroundProcess();
         exit(0);
     }
+    // Checks for cd command and changes directory accordingly if so
     if (strcmp(cmd->args[0], "cd") == 0) {
         if (cmd->args[1] == NULL) {
             chdir(getenv("HOME"));
@@ -92,6 +123,8 @@ int runBuiltIn (struct Command* cmd, int lastStatus, int lastSignal) {
         }
         return 1;
     }
+    // Checks for status command and prints based on lastStatus
+    // or lastSignal accordingly
     if (strcmp(cmd->args[0], "status") == 0) {
         if (lastSignal == 0) {
             printf("exit value %d\n", lastStatus);
@@ -132,7 +165,8 @@ int main (){
 
         struct Command cmd;
 
-        strcpy(expandedInput, input);
+        expandPID(input, expandedInput);
+        //printf("%s\n", expandedInput);
         parseCommand(expandedInput, &cmd);
 
         if (cmd.args [0] == NULL) {
