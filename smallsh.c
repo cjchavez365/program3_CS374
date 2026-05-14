@@ -100,6 +100,50 @@ void parseCommand (char* input, struct Command* cmd) {
     }
 }
 
+void setupInput(struct Command* cmd) {
+    int inputFD;
+
+    if (cmd->inputFile != NULL) {
+        inputFD = open(cmd->inputFile, O_RDONLY);
+
+        if (inputFD == -1) {
+            printf("cannot open %s for input\n", cmd->inputFile);
+            fflush(stdout);
+            exit(1);
+        }
+
+        dup2(inputFD, STDIN_FILENO);
+        close(inputFD);
+    }
+    else if (cmd->background == 1) {
+        inputFD = open("/dev/null", O_RDONLY);
+        dup2(inputFD, STDIN_FILENO);
+        close(inputFD);
+    }
+}
+
+void setupOutput (struct Command* cmd) {
+    int outputFD;
+
+    if (cmd->outputFile != NULL) {
+        outputFD = open(cmd->outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+        if (outputFD == -1) {
+            printf("cannot open %s for output\n", cmd->outputFile);
+            fflush(stdout);
+            exit(1);
+        }
+
+        dup2(outputFD, STDOUT_FILENO);
+        close(outputFD);
+    }
+    else if (cmd->background == 1) {
+        outputFD = open("/dev/null", O_WRONLY);
+        dup2(outputFD, STDOUT_FILENO);
+        close(outputFD);
+    }
+}
+
 void runOtherCommand (struct Command* cmd, int* lastStatus, int* lastSignal) {
     int childStatus;
     pid_t spawnPid = fork();
@@ -129,8 +173,8 @@ void runOtherCommand (struct Command* cmd, int* lastStatus, int* lastSignal) {
         childSIGTSTP.sa_flags = 0;
         sigaction(SIGTSTP, &childSIGTSTP, NULL);
 
-        //setupInput(cmd);
-        //setupOutput(cmd);
+        setupInput(cmd);
+        setupOutput(cmd);
 
         execvp(cmd->args[0], cmd->args);
 
